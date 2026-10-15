@@ -60,15 +60,23 @@ if tg_app:
 # --- FASTAPI LIFECYCLE MANAGEMENT ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if tg_app and RENDER_EXTERNAL_URL:
-        webhook_url = f"{RENDER_EXTERNAL_URL.rstrip('/')}/webhook/telegram"
-        await tg_app.bot.set_webhook(url=webhook_url)
-        await tg_app.initialize()
-        await tg_app.start()
+    if tg_app:
+        try:
+            await tg_app.initialize()
+            await tg_app.start()
+            if RENDER_EXTERNAL_URL:
+                webhook_url = f"{RENDER_EXTERNAL_URL.rstrip('/')}/webhook/telegram"
+                await tg_app.bot.set_webhook(url=webhook_url)
+                print(f"✅ Telegram webhook registered: {webhook_url}")
+        except Exception as e:
+            print(f"INFO: Telegram webhook registration deferred - will retry in production: {e}")
     yield
     if tg_app:
-        await tg_app.stop()
-        await tg_app.shutdown()
+        try:
+            await tg_app.stop()
+            await tg_app.shutdown()
+        except Exception as e:
+            print(f"⚠️ Telegram shutdown warning: {e}")
 
 app = FastAPI(lifespan=lifespan)
 
@@ -108,4 +116,4 @@ async def health_check():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port)
+    uvicorn.run("Main:app", host="0.0.0.0", port=port)
